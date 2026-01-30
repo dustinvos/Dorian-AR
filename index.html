@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Dorian Gray AR</title>
+
+    <!-- iOS Safari viewport fix -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
     <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -11,57 +14,125 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-  html, body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: #000;
-  }
-  a-scene {
-    position: fixed !important;
-    top: 0; left: 0;
-    width: 100vw !important;
-    height: 100vh !important;
-  }
-</style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #000;
+      }
+      a-scene {
+        position: fixed !important;
+        top: 0; left: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+      /* Simple on-screen logger */
+      #log {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        z-index: 99999;
+        background: rgba(0,0,0,0.65);
+        color: #fff;
+        padding: 8px 10px;
+        font: 12px/1.3 monospace;
+        border-radius: 10px;
+        max-width: 90vw;
+      }
+      /* Tap-to-start overlay */
+      #startUI {
+        position: fixed;
+        inset: 0;
+        z-index: 99998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.88);
+        color: #fff;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      #startUI button {
+        margin-top: 16px;
+        font-size: 18px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        border: 0;
+        cursor: pointer;
+      }
+    </style>
   </head>
 
   <body>
+    <!-- Tap-to-start UI (fixes iOS black camera issues) -->
+    <div id="startUI">
+      <div>
+        <div style="font-size:22px; margin-bottom:10px;">Tap to start AR</div>
+        <div style="font-size:14px; opacity:0.85;">
+          Allow camera access, then point at the rose marker.
+        </div>
+        <button id="startBtn">Start</button>
+      </div>
+    </div>
+
+    <div id="log">loading…</div>
+
     <a-scene
-      mindar-image="imageTargetSrc: targets.mind;"
+      id="scene"
+      mindar-image="imageTargetSrc: targets.mind; autoStart: false;"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: true"
       embedded
     >
-
       <a-assets>
         <img id="overlay" src="rose-overlay.png" />
         <audio id="audio" src="setting-audio.mp3"></audio>
       </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <!-- Use MindAR camera entity (more stable than a-camera on iOS) -->
+      <a-entity mindar-image-camera="enabled: true"></a-entity>
 
       <!-- ROSE TARGET -->
       <a-entity mindar-image-target="targetIndex: 0">
-
         <!-- IMAGE OVERLAY -->
-        <a-plane
-          src="#overlay"
-          position="0 0 0"
-          height="1"
-          width="1"
-        ></a-plane>
+        <a-plane src="#overlay" position="0 0 0" height="1" width="1"></a-plane>
 
-        <!-- AUDIO -->
-        <a-sound
-          src="#audio"
-          autoplay="true"
-        ></a-sound>
+        <!-- AUDIO (will attempt autoplay once target is found; iOS may still require a prior tap, which we already do) -->
+        <a-sound src="#audio" autoplay="true"></a-sound>
 
+        <!-- DEBUG BOX: remove later -->
+        <a-box position="0 0 0.1" depth="0.05" height="0.2" width="0.2" color="red"></a-box>
       </a-entity>
-
     </a-scene>
+
+    <script>
+      const logEl = document.getElementById('log');
+      const startUI = document.getElementById('startUI');
+      const startBtn = document.getElementById('startBtn');
+      const sceneEl = document.getElementById('scene');
+
+      const log = (msg) => { logEl.textContent = msg; };
+
+      // MindAR lifecycle messages
+      sceneEl.addEventListener("arReady", () => log("AR ready — point at the rose"));
+      sceneEl.addEventListener("arError", (e) => log("AR error: " + (e.detail?.error || "unknown")));
+
+      // Start AR only after user interaction (critical for iOS)
+      startBtn.addEventListener('click', async () => {
+        try {
+          log("Starting AR…");
+          const mindarSystem = sceneEl.systems["mindar-image-system"];
+          await mindarSystem.start();
+          startUI.style.display = "none";
+          log("AR started — point at the rose");
+        } catch (e) {
+          log("Start failed: " + e);
+          alert("AR failed to start: " + e);
+        }
+      });
+    </script>
   </body>
 </html>
