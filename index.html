@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dorian Gray AR</title>
+
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+    <!-- MindAR -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+  </head>
+
+  <body>
+    <a-scene
+      mindar-image="imageTargetSrc: targets.mind;"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: true"
+      embedded
+    >
+
+      <a-assets>
+        <img id="overlay" src="rose-overlay.png" />
+        <audio id="audio" src="setting-audio.mp3"></audio>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- ROSE TARGET -->
+      <a-entity mindar-image-target="targetIndex: 0">
+
+        <!-- IMAGE OVERLAY -->
+        <a-plane
+          src="#overlay"
+          position="0 0 0"
+          height="1"
+          width="1"
+        ></a-plane>
+
+        <!-- AUDIO -->
+        <a-sound
+          src="#audio"
+          autoplay="true"
+        ></a-sound>
+
+      </a-entity>
+
+    </a-scene>
+  </body>
+</html>
