@@ -28,18 +28,20 @@
         width: 100vw !important;
         height: 100vh !important;
       }
-      /* Simple on-screen logger */
+      /* Enhanced logger with more space */
       #log {
         position: fixed;
         left: 12px;
         bottom: 12px;
         z-index: 99999;
-        background: rgba(0,0,0,0.65);
-        color: #fff;
-        padding: 8px 10px;
-        font: 12px/1.3 monospace;
-        border-radius: 10px;
+        background: rgba(0,0,0,0.85);
+        color: lime;
+        padding: 12px;
+        font: 11px/1.4 monospace;
+        border-radius: 8px;
         max-width: 90vw;
+        max-height: 200px;
+        overflow-y: auto;
       }
       /* Tap-to-start overlay */
       #startUI {
@@ -62,12 +64,14 @@
         border-radius: 12px;
         border: 0;
         cursor: pointer;
+        background: #4CAF50;
+        color: white;
       }
     </style>
   </head>
 
   <body>
-    <!-- Tap-to-start UI (fixes iOS black camera issues) -->
+    <!-- Tap-to-start UI -->
     <div id="startUI">
       <div>
         <div style="font-size:22px; margin-bottom:10px;">Tap to start AR</div>
@@ -78,7 +82,7 @@
       </div>
     </div>
 
-    <div id="log">loading…</div>
+    <div id="log">Initializing...</div>
 
     <a-scene
       id="scene"
@@ -92,18 +96,18 @@
         <audio id="audio" src="Dorian_Gray_Chapter_1_Setting.mp3"></audio>
       </a-assets>
 
-      <!-- Use MindAR camera entity (more stable than a-camera on iOS) -->
+      <!-- MindAR camera entity -->
       <a-entity mindar-image-camera="enabled: true"></a-entity>
 
       <!-- ROSE TARGET -->
       <a-entity mindar-image-target="targetIndex: 0">
         <!-- IMAGE OVERLAY -->
-        <a-plane src="#overlay" position="0 0 0" height="1" width="1"></a-plane>
+        <a-plane src="#overlay" position="0 0 0" height="1" width="1" opacity="0.9"></a-plane>
 
-        <!-- AUDIO (will attempt autoplay once target is found; iOS may still require a prior tap, which we already do) -->
+        <!-- AUDIO -->
         <a-sound src="#audio" autoplay="true"></a-sound>
 
-        <!-- DEBUG BOX: remove later -->
+        <!-- DEBUG BOX -->
         <a-box position="0 0 0.1" depth="0.05" height="0.2" width="0.2" color="red"></a-box>
       </a-entity>
     </a-scene>
@@ -114,24 +118,85 @@
       const startBtn = document.getElementById('startBtn');
       const sceneEl = document.getElementById('scene');
 
-      const log = (msg) => { logEl.textContent = msg; };
+      let logMessages = [];
+      const log = (msg) => { 
+        console.log(msg);
+        const timestamp = new Date().toLocaleTimeString();
+        logMessages.push(`[${timestamp}] ${msg}`);
+        if (logMessages.length > 10) logMessages.shift();
+        logEl.innerHTML = logMessages.join('<br>');
+      };
+
+      log("Page loaded");
+
+      // Check if scene loaded
+      sceneEl.addEventListener('loaded', () => {
+        log("A-Frame scene loaded");
+      });
 
       // MindAR lifecycle messages
-      sceneEl.addEventListener("arReady", () => log("AR ready — point at the rose"));
-      sceneEl.addEventListener("arError", (e) => log("AR error: " + (e.detail?.error || "unknown")));
+      sceneEl.addEventListener("arReady", () => {
+        log("✓ AR ready - point at rose");
+      });
+      
+      sceneEl.addEventListener("arError", (e) => {
+        log("✗ AR error: " + (e.detail?.error || "unknown"));
+        console.error("AR Error details:", e);
+      });
 
-      // Start AR only after user interaction (critical for iOS)
+      // Target found/lost events
+      const targetEntity = document.querySelector('[mindar-image-target]');
+      if (targetEntity) {
+        targetEntity.addEventListener('targetFound', () => {
+          log("🎯 Rose target found!");
+        });
+        targetEntity.addEventListener('targetLost', () => {
+          log("Target lost");
+        });
+      }
+
+      // Start AR with detailed error handling
       startBtn.addEventListener('click', async () => {
         try {
-          log("Starting AR…");
-          const mindarSystem = sceneEl.systems["mindar-image-system"];
-          await mindarSystem.start();
+          log("User clicked Start");
+          log("Hiding start UI...");
           startUI.style.display = "none";
-          log("AR started — point at the rose");
+          
+          log("Requesting camera access...");
+          const mindarSystem = sceneEl.systems["mindar-image-system"];
+          
+          if (!mindarSystem) {
+            throw new Error("MindAR system not found");
+          }
+          
+          log("Starting MindAR...");
+          await mindarSystem.start();
+          
+          log("✓ AR started successfully");
+          
+          // Check if camera stream is visible
+          setTimeout(() => {
+            const video = document.querySelector('video');
+            if (video) {
+              log(`Video element found: ${video.videoWidth}x${video.videoHeight}`);
+              if (video.videoWidth === 0) {
+                log("⚠ Camera stream not rendering");
+              }
+            } else {
+              log("⚠ No video element found");
+            }
+          }, 1000);
+          
         } catch (e) {
-          log("Start failed: " + e);
-          alert("AR failed to start: " + e);
+          log("✗ Start failed: " + e.message);
+          console.error("Full error:", e);
+          alert("AR failed to start: " + e.message);
         }
+      });
+
+      // Additional debugging
+      window.addEventListener('error', (e) => {
+        log("JS Error: " + e.message);
       });
     </script>
   </body>
